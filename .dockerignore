@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+build
+coverage
+scratch
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example.production
+dev.db
+prisma/dev.db
+Bandrackply - Planning.pdf

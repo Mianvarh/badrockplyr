@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model MediaItem {
+  id               String             @id @default(uuid())
+  tmdbId           String
+  mediaType        String             // "movie", "tv", "anime"
+  title            String
+  originalTitle    String
+  overview         String
+  posterPath       String?
+  backdropPath     String?
+  releaseYear      Int?
+  firstAirYear     Int?
+  genres           String?            // Comma-separated list
+  originalLanguage String?
+  season           Int?               // Nullable, only for series/anime
+  episode          Int?               // Nullable, only for series/anime
+  episodeTitle     String?
+  episodeOverview  String?
+  episodeStillPath String?
+  airDate          String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  generatedLinks   GeneratedLink[]
+  sourceCandidates SourceCandidate[]
+  videoVariants    VideoVariant[]
+  scrapeResults    ScrapeResult[]
+  selectedPlayback SelectedPlayback?
+
+  @@index([tmdbId, mediaType, season, episode])
+  @@index([createdAt])
+}
+
+model GeneratedLink {
+  id           String    @id @default(uuid())
+  mediaItemId  String
+  mediaItem    MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  type         String    // "movie", "tv", "anime"
+  tmdbId       String
+  season       Int?
+  episode      Int?
+  playerUrl    String
+  collectorUrl String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tmdbId, type, season, episode])
+  @@index([mediaItemId])
+  @@index([createdAt])
+}
+
+model SourceSite {
+  id                String            @id @default(uuid())
+  name              String
+  allowedDomain     String
+  baseUrl           String
+  searchMode        String            // "TMDB_ID", "TITLE_YEAR", "INDEX_JSON", "SITEMAP", "MANUAL_URL"
+  active            Boolean           @default(true)
+  priority          Int               @default(0)
+  usePlaywright     Boolean           @default(false)
+  videoSelector     String?
+  videoAttribute    String?
+  qualitySelector   String?
+  qualityAttribute  String?
+  languageSelector  String?
+  languageAttribute String?
+  tmdbSelector      String?
+  tmdbAttribute     String?
+  subtitleSelector  String?
+  subtitleAttribute String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  sourceCandidates  SourceCandidate[]
+  videoVariants     VideoVariant[]
+  scrapeResults     ScrapeResult[]
+
+  @@index([active, priority])
+  @@index([allowedDomain])
+}
+
+model SourceCandidate {
+  id           String     @id @default(uuid())
+  mediaItemId  String
+  mediaItem    MediaItem  @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  sourceSiteId String
+  sourceSite   SourceSite @relation(fields: [sourceSiteId], references: [id], onDelete: Cascade)
+  candidateUrl String
+  matchTitle   String?
+  matchYear    Int?
+  matchTmdbId  String?
+  matchScore   Float?
+  status       String     // "PENDING", "PROCESSING", "FOUND", "NOT_FOUND"
+  createdAt    DateTime   @default(now())
+
+  @@index([mediaItemId, status])
+  @@index([sourceSiteId])
+}
+
+model VideoVariant {
+  id                String             @id @default(uuid())
+  mediaItemId       String
+  mediaItem         MediaItem          @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  sourceSiteId      String
+  sourceSite        SourceSite         @relation(fields: [sourceSiteId], references: [id], onDelete: Cascade)
+  candidateUrl      String
+  videoUrl          String
+  language          String             // LATINO, ENGLISH, CASTELLANO, JAPANESE
+  quality           String             // 2160p, 1080p, HD, 720p, SD, CAM
+  status            String             // ONLINE, OFFLINE
+  isSelected        Boolean            @default(false)
+  sortOrder         Int                @default(0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  subtitleTracks    SubtitleTrack[]
+  selectedPlaybacks SelectedPlayback[]
+
+  @@index([mediaItemId, status, isSelected])
+  @@index([sourceSiteId])
+  @@index([sortOrder])
+}
+
+model SubtitleTrack {
+  id             String       @id @default(uuid())
+  videoVariantId String
+  videoVariant   VideoVariant @relation(fields: [videoVariantId], references: [id], onDelete: Cascade)
+  url            String
+  language       String
+  format         String       // "vtt", "srt"
+  label          String?
+  status         String       // ONLINE, OFFLINE, PENDING
+  createdAt      DateTime     @default(now())
+
+  @@index([videoVariantId])
+}
+
+model ScrapeResult {
+  id           String     @id @default(uuid())
+  mediaItemId  String
+  mediaItem    MediaItem  @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  sourceSiteId String
+  sourceSite   SourceSite @relation(fields: [sourceSiteId], references: [id], onDelete: Cascade)
+  candidateUrl String
+  found        Boolean
+  message      String?
+  scrapedAt    DateTime   @default(now())
+
+  @@index([mediaItemId])
+  @@index([sourceSiteId])
+  @@index([scrapedAt])
+}
+
+model SelectedPlayback {
+  id             String       @id @default(uuid())
+  mediaItemId    String       @unique
+  mediaItem      MediaItem    @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  videoVariantId String
+  videoVariant   VideoVariant @relation(fields: [videoVariantId], references: [id], onDelete: Cascade)
+  language       String
+  quality        String
+  status         String
+  selectedAt     DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model RefreshJobLog {
+  id         String    @id @default(uuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  status     String    // "RUNNING", "COMPLETED", "FAILED"
+  message    String?
+
+  @@index([startedAt])
+  @@index([status])
+}

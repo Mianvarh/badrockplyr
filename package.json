@@ -1,0 +1,51 @@
+{
+  "name": "badrockplyr",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate-data": "tsx scripts/migrate-sqlite-to-postgres.ts",
+    "worker:scrape": "tsx scripts/scrape-worker.ts",
+    "private-media:dev": "tsx services/private-media-resolver/server.ts",
+    "loop:embeds": "tsx scripts/ensure-minimum-embeds-loop.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "better-sqlite3": "^12.10.0",
+    "bullmq": "^5.78.0",
+    "cheerio": "^1.2.0",
+    "hls.js": "^1.6.16",
+    "ioredis": "^5.11.1",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.7",
+    "pg": "^8.21.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "undici": "^8.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.7",
+    "prisma": "^7.8.0",
+    "puppeteer-core": "^25.1.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^4.1.8"
+  }
+}

@@ -1,0 +1,75 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bandrackply-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bandrackply}:${POSTGRES_PASSWORD:-bandrackply}@postgres:5432/${POSTGRES_DB:-bandrackply}
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN:-localhost}
+    depends_on:
+      - postgres
+      - redis
+    expose:
+      - "3000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bandrackply-worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bandrackply}:${POSTGRES_PASSWORD:-bandrackply}@postgres:5432/${POSTGRES_DB:-bandrackply}
+      REDIS_URL: redis://redis:6379
+      SCRAPE_QUEUE_ENABLED: "true"
+    depends_on:
+      - postgres
+      - redis
+    command: ["npm", "run", "worker:scrape"]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: bandrackply-caddy
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: bandrackply-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bandrackply}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bandrackply}
+      POSTGRES_DB: ${POSTGRES_DB:-bandrackply}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: bandrackply-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
