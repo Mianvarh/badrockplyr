@@ -2,8 +2,9 @@ import * as cheerio from "cheerio";
 import { normalizeLanguage } from "./languageNormalizer";
 import { normalizeQuality } from "./qualityNormalizer";
 import { externalFetch } from "@/lib/httpClient";
-import { isCleanPlaybackUrl, isResolvableEmbedUrl, isSupportedEmbedUrl, isUnsafeIframeHost } from "@/lib/playbackUrlPolicy";
 import { extractPelisJuanitaStreamRows, isPelisJuanitaUrl } from "./pelisJuanitaService";
+import { extractPelisFlixStreamRows, isPelisFlixUrl } from "./pelisFlixService";
+import { isCleanPlaybackUrl, isResolvableEmbedUrl, isSupportedEmbedUrl, isUnsafeIframeHost } from "@/lib/playbackUrlPolicy";
 
 function extractJkLanguageMap(html: string): Record<string, string> {
   const map: Record<string, string> = {
@@ -379,6 +380,11 @@ export async function scrapePage(url: string): Promise<ScrapeResultData> {
         tmdbId = metaTmdb.trim();
       }
       videos.push(...extractPelisJuanitaStreamRows(html));
+    }
+
+    // --- Format H: PelisFlix player options parser ---
+    if (isPelisFlixUrl(url)) {
+      videos.push(...extractPelisFlixStreamRows(html));
     }
 
     // --- Format G: Cuevana3 player options tab parser ---

@@ -11,6 +11,7 @@ import { resolveVideoUrl } from "@/services/streamResolver";
 import { findOkRuVideos, prioritizeVerifiedCatalogCandidate } from "@/services/okRuService";
 import { extractPelisJuanitaCandidates, PELIS_JUANITA_BASE_URL } from "@/services/pelisJuanitaService";
 import { findMonosChinosUrl } from "@/services/monosChinosService";
+import { findPelisFlixUrl, PELISFLIX_BASE_URL } from "@/services/pelisFlixService";
 import { validateHlsUrl } from "@/services/hlsValidator";
 import { discoverUnlimplayAlternates, resolveUnlimplay } from "@/services/unlimplay/resolver";
 import { appBaseUrl } from "@/lib/config";
@@ -2052,6 +2053,12 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
       create: { id: "monoschinos-source-id", name: "MonosChinos", allowedDomain: "monoschinos2.com", baseUrl: "https://monoschinos2.com", searchMode: "TITLE", active: true, priority: 12, usePlaywright: false }
     });
 
+    const pelisflix = await prisma.sourceSite.upsert({
+      where: { id: "pelisflix-source-id" },
+      update: { name: "PelisFlix", allowedDomain: "pelisflix.lat", baseUrl: PELISFLIX_BASE_URL, searchMode: "TITLE", active: true, priority: 13, usePlaywright: false },
+      create: { id: "pelisflix-source-id", name: "PelisFlix", allowedDomain: "pelisflix.lat", baseUrl: PELISFLIX_BASE_URL, searchMode: "TITLE", active: true, priority: 13, usePlaywright: false }
+    });
+
     const privateMedia = await prisma.sourceSite.upsert({
       where: { id: PRIVATE_MEDIA_SOURCE_ID },
       update: { name: "Private Media", allowedDomain: "private-media.local", baseUrl: "private-media://resolve", searchMode: "TMDB_ID", active: true, priority: 98, usePlaywright: false },
@@ -2074,12 +2081,13 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
     const shouldSearchGeneral = !isAnime || isMovie;
     const shouldSearchSeries = !isAnime && !isMovie;
 
-    const [jkUrl, tioUrl, aflvUrl, mcUrl, cuevanaUrl, cinecalidadUrl, gnulaUrl, gnulaRelay, doramasflixUrl, cinehdplusUrl, fullonlineUrl, unlimplayVideos, okruVideos] = await Promise.all([
+    const [jkUrl, tioUrl, aflvUrl, mcUrl, cuevanaUrl, pelisflixUrl, cinecalidadUrl, gnulaUrl, gnulaRelay, doramasflixUrl, cinehdplusUrl, fullonlineUrl, unlimplayVideos, okruVideos] = await Promise.all([
       shouldSearchAnime ? findJKAnimeUrl(title, originalTitle, allTitles, isMovie, episode, link.season || 1).catch(() => null) : Promise.resolve(null),
       shouldSearchAnime ? findTioAnimeUrl(title, originalTitle, allTitles, isMovie, episode, link.season || 1).catch(() => null) : Promise.resolve(null),
       shouldSearchAnime ? findAnimeFLVUrl(title, originalTitle, allTitles, isMovie, episode, link.season || 1).catch(() => null) : Promise.resolve(null),
       shouldSearchAnime ? findMonosChinosUrl(title, originalTitle, allTitles, isMovie, episode, link.season || 1).catch(() => null) : Promise.resolve(null),
       shouldSearchGeneral ? findCuevana3Url(allTitles, isMovie, link.mediaItem.releaseYear || undefined, link.season || 1, episode).catch(() => null) : Promise.resolve(null),
+      shouldSearchGeneral ? findPelisFlixUrl(allTitles, isMovie, link.mediaItem.releaseYear || undefined, link.season || 1, episode).catch(() => null) : Promise.resolve(null),
       shouldSearchGeneral ? findCineCalidadUrl(allTitles, isMovie, link.mediaItem.releaseYear || undefined, link.season || 1, episode).catch(() => null) : Promise.resolve(null),
       findGnulaUrl(allTitles, isMovie, link.mediaItem.releaseYear || undefined, link.season || 1, episode).catch(() => null),
       fetchGnulaRelayVideos(link.tmdbId, allTitles, isMovie, link.mediaItem.releaseYear || undefined, link.season || 1, episode, link.mediaItem.originalLanguage).catch(() => null),
@@ -2098,7 +2106,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
       }).catch(() => [])
     ]);
 
-    console.log(`[Scraper] Source discovery -> JKAnime: ${jkUrl || 'not found'} | TioAnime: ${tioUrl || 'not found'} | AnimeFLV: ${aflvUrl || 'not found'} | MonosChinos: ${mcUrl || 'not found'} | Cuevana3: ${cuevanaUrl || 'not found'} | CineCalidad: ${cinecalidadUrl || 'not found'} | Gnula: ${gnulaUrl || 'not found'} | Gnula Relay: ${gnulaRelay ? gnulaRelay.videos.length + ' videos' : 'not found'} | Doramasflix: ${doramasflixUrl || 'not found'} | CineHDPlus: ${cinehdplusUrl || 'not found'} | Full Online: ${fullonlineUrl || 'not found'} | Unlimplay: ${unlimplayVideos ? unlimplayVideos.length + ' videos' : 'not found'} | OK.ru: ${okruVideos.length ? okruVideos.length + ' videos' : 'not found'}`);
+    console.log(`[Scraper] Source discovery -> JKAnime: ${jkUrl || 'not found'} | TioAnime: ${tioUrl || 'not found'} | AnimeFLV: ${aflvUrl || 'not found'} | MonosChinos: ${mcUrl || 'not found'} | Cuevana3: ${cuevanaUrl || 'not found'} | PelisFlix: ${pelisflixUrl || 'not found'} | CineCalidad: ${cinecalidadUrl || 'not found'} | Gnula: ${gnulaUrl || 'not found'} | Gnula Relay: ${gnulaRelay ? gnulaRelay.videos.length + ' videos' : 'not found'} | Doramasflix: ${doramasflixUrl || 'not found'} | CineHDPlus: ${cinehdplusUrl || 'not found'} | Full Online: ${fullonlineUrl || 'not found'} | Unlimplay: ${unlimplayVideos ? unlimplayVideos.length + ' videos' : 'not found'} | OK.ru: ${okruVideos.length ? okruVideos.length + ' videos' : 'not found'}`);
 
     // 3.5. Save Unlimplay videos directly (API source, no scraping needed)
     // We will collect all candidates first
@@ -2264,6 +2272,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
     if (aflvUrl) sourceJobs.push({ site: animeflv, scrapeUrl: aflvUrl });
     if (mcUrl) sourceJobs.push({ site: monoschinos, scrapeUrl: mcUrl });
     if (cuevanaUrl) sourceJobs.push({ site: cuevana3, scrapeUrl: cuevanaUrl });
+    if (pelisflixUrl) sourceJobs.push({ site: pelisflix, scrapeUrl: pelisflixUrl });
     if (cinecalidadUrl) sourceJobs.push({ site: cinecalidad, scrapeUrl: cinecalidadUrl });
     if (gnulaUrl) sourceJobs.push({ site: gnula, scrapeUrl: gnulaUrl });
     if (doramasflixUrl) sourceJobs.push({ site: doramasflix, scrapeUrl: doramasflixUrl });
@@ -2334,6 +2343,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
       "unlimplay-source-id": 15,
       "fullonline-source-id": 17,
       "cinehdplus-source-id": 16,
+      "pelisflix-source-id": 13,
       "cinecalidad-source-id": 13,
       "gnula-source-id": 16,
       "cuevana3-source-id": 12,

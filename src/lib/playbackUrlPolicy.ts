@@ -103,6 +103,7 @@ export function isResolvableEmbedUrl(url: string) {
     "player.videasy.net",
     "vsembed.ru",
     "vidapi.xyz",
+    "nupload.",
   ].some((host) => lower.includes(host));
 }
 
@@ -114,6 +115,7 @@ export function isSupportedEmbedUrl(url: string) {
     "videasy.net",
     "player.videasy.net",
     "vidapi.xyz",
+    "nupload.",
     "mp4upload.com",
   ].some((host) => lower.includes(host));
 }
