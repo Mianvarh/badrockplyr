@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { appBaseUrl } from "@/lib/config";
-import { extractApiKeyFromHeaders, validateApiKey } from "@/lib/apiKeyAuth";
+import { extractApiKey, validateApiKey } from "@/lib/apiKeyAuth";
 import { findTMDBByImdbId, fetchTMDBExternalIds } from "@/services/tmdbService";
 import { saveGeneratedLink } from "@/app/actions/generatorActions";
 import { isPrivateMediaVariant, isPrivateMediaUrl } from "@/lib/playbackUrlPolicy";
@@ -14,13 +14,13 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 1. API Key Authentication via X-Badrock-Key or Authorization: Bearer <key>
-    const apiKey = extractApiKeyFromHeaders(request.headers);
+    // 1. API Key Authentication via Header (X-Badrock-Key / Bearer) or Query Param (?api_key= / ?key=)
+    const apiKey = extractApiKey(request);
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
-          error: "API Key requerida. Proporciona el header X-Badrock-Key o Authorization: Bearer <key>.",
+          error: "API Key requerida. Proporciona el header X-Badrock-Key, Authorization: Bearer <key>, o el parámetro ?api_key=<key>.",
         },
         { status: 401 }
       );
@@ -88,22 +88,25 @@ export async function GET(
     const season = isMovie ? null : seasonParam;
     const episode = isMovie ? null : episodeParam;
 
-    // 4. Query MediaItem from SQLite / Postgres database
-    let mediaItem = await prisma.mediaItem.findFirst({
-      where: {
-        tmdbId: resolvedTmdbId,
-        mediaType: resolvedType,
-        season,
-        episode,
-      },
-      include: {
-        videoVariants: {
-          where: { status: "ONLINE" },
-          include: { sourceSite: true },
-          orderBy: { sortOrder: "asc" },
+    // 4. Query MediaItem from SQLite / Postgres database.
+    // Movies are matched by TMDB ID only (like the embed player): older rows store episode = 1
+    // instead of null, and duplicates may exist, so prefer the row with the most variants.
+    const findMediaItem = () =>
+      prisma.mediaItem.findFirst({
+        where: isMovie
+          ? { tmdbId: resolvedTmdbId, mediaType: "movie" }
+          : { tmdbId: resolvedTmdbId, mediaType: resolvedType, season, episode },
+        orderBy: { videoVariants: { _count: "desc" } },
+        include: {
+          videoVariants: {
+            where: { status: "ONLINE" },
+            include: { sourceSite: true },
+            orderBy: { sortOrder: "asc" },
+          },
         },
-      },
-    });
+      });
+
+    let mediaItem = await findMediaItem();
 
     // 5. If not in DB, trigger auto-generation / scraping on demand
     if (!mediaItem || mediaItem.videoVariants.length === 0) {
@@ -116,21 +119,7 @@ export async function GET(
       );
 
       // Re-query media item after scraping
-      mediaItem = await prisma.mediaItem.findFirst({
-        where: {
-          tmdbId: resolvedTmdbId,
-          mediaType: resolvedType,
-          season,
-          episode,
-        },
-        include: {
-          videoVariants: {
-            where: { status: "ONLINE" },
-            include: { sourceSite: true },
-            orderBy: { sortOrder: "asc" },
-          },
-        },
-      });
+      mediaItem = await findMediaItem();
     }
 
     if (!mediaItem) {

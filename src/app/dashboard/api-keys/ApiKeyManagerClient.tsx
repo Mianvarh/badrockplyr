@@ -7,15 +7,19 @@ import {
   Copy,
   Check,
   Shield,
-  ShieldAlert,
   Trash2,
   Power,
   RefreshCw,
   Globe,
   Gauge,
-  Clock,
-  ExternalLink,
-  Code2
+  Code2,
+  Play,
+  Terminal,
+  Server,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  FileCode2,
 } from "lucide-react";
 import type { ApiKey } from "@prisma/client";
 import {
@@ -44,7 +48,23 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
   // Newly generated key display
   const [justGeneratedKey, setJustGeneratedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedCurl, setCopiedCurl] = useState(false);
+  const [copiedCodeSnippet, setCopiedCodeSnippet] = useState(false);
+
+  // Live API Tester State
+  const [testKey, setTestKey] = useState<string>(keys[0]?.key || "");
+  const [testId, setTestId] = useState<string>("tt15398776");
+  const [testType, setTestType] = useState<"movie" | "tv" | "anime">("movie");
+  const [testSeason, setTestSeason] = useState<number>(1);
+  const [testEpisode, setTestEpisode] = useState<number>(1);
+  const [testAuthMode, setTestAuthMode] = useState<"header_x" | "header_bearer" | "query_param">("header_x");
+  const [testLoading, setTestLoading] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<any | null>(null);
+  const [testStatus, setTestStatus] = useState<number | null>(null);
+  const [testLatency, setTestLatency] = useState<number | null>(null);
+  const [testerTab, setTesterTab] = useState<"json" | "preview">("json");
+
+  // Code Snippet Tab
+  const [codeSnippetTab, setCodeSnippetTab] = useState<"curl" | "wordpress" | "js" | "iframe">("curl");
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +84,9 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
       if (res.success && res.apiKey && res.generatedKey) {
         setKeys((prev) => [res.apiKey!, ...prev]);
         setJustGeneratedKey(res.generatedKey);
+        if (!testKey) {
+          setTestKey(res.generatedKey);
+        }
         setName("");
         setAllowedDomains("");
         setRateLimit(60);
@@ -105,25 +128,136 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
     });
   };
 
-  const copyToClipboard = (text: string, isCurl = false) => {
+  const copyToClipboard = (text: string, isSnippet = false) => {
     navigator.clipboard.writeText(text);
-    if (isCurl) {
-      setCopiedCurl(true);
-      setTimeout(() => setCopiedCurl(false), 2000);
+    if (isSnippet) {
+      setCopiedCodeSnippet(true);
+      setTimeout(() => setCopiedCodeSnippet(false), 2000);
     } else {
       setCopiedKey(true);
       setTimeout(() => setCopiedKey(false), 2000);
     }
   };
 
+  const executeLiveTest = async () => {
+    const keyToUse = testKey.trim() || keys[0]?.key;
+    if (!keyToUse) {
+      alert("Por favor selecciona o introduce una API Key para probar.");
+      return;
+    }
+
+    setTestLoading(true);
+    setTestResult(null);
+    setTestStatus(null);
+    setTestLatency(null);
+
+    const startTime = performance.now();
+
+    try {
+      let targetUrl = `${baseUrl}/api/v1/media/${encodeURIComponent(testId)}?type=${testType}`;
+      if (testType !== "movie") {
+        targetUrl += `&season=${testSeason}&episode=${testEpisode}`;
+      }
+
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+      };
+
+      if (testAuthMode === "header_x") {
+        headers["X-Badrock-Key"] = keyToUse;
+      } else if (testAuthMode === "header_bearer") {
+        headers["Authorization"] = `Bearer ${keyToUse}`;
+      } else {
+        targetUrl += `&api_key=${encodeURIComponent(keyToUse)}`;
+      }
+
+      const response = await fetch(targetUrl, {
+        method: "GET",
+        headers,
+      });
+
+      const latencyMs = Math.round(performance.now() - startTime);
+      setTestLatency(latencyMs);
+      setTestStatus(response.status);
+
+      const json = await response.json();
+      setTestResult(json);
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - startTime);
+      setTestLatency(latencyMs);
+      setTestStatus(500);
+      setTestResult({
+        success: false,
+        error: err.message || "Error al conectar con la API.",
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   const activeCount = keys.filter((k) => k.active).length;
   const totalRequests = keys.reduce((acc, k) => acc + k.requestCount, 0);
 
-  const sampleCurl = `curl -X GET "${baseUrl}/api/v1/media/550" \\
-  -H "X-Badrock-Key: ${keys[0]?.key || "bdrk_live_xxxxxxxxxxxxxxxx"}"`;
+  const selectedOrFirstKey = testKey || keys[0]?.key || "bdrk_live_xxxxxxxxxxxxxxxx";
+
+  // Code Snippet Generators
+  const getCodeSnippet = () => {
+    switch (codeSnippetTab) {
+      case "curl":
+        return `# 1. Autenticación por Header Recomendada:
+curl -X GET "${baseUrl}/api/v1/media/${testId}?type=${testType}" \\
+  -H "X-Badrock-Key: ${selectedOrFirstKey}"
+
+# 2. Opcional mediante Query Parameter:
+curl -X GET "${baseUrl}/api/v1/media/${testId}?type=${testType}&api_key=${selectedOrFirstKey}"`;
+
+      case "wordpress":
+        return `<?php
+// WordPress PHP Integration:
+$response = wp_remote_get("${baseUrl}/api/v1/media/${testId}?type=${testType}", [
+    'timeout' => 20,
+    'headers' => [
+        'X-Badrock-Key' => '${selectedOrFirstKey}',
+        'Accept' => 'application/json'
+    ]
+]);
+
+if (!is_wp_error($response)) {
+    $data = json_decode(wp_remote_retrieve_body($response), true);
+    if ($data['success']) {
+        $embed_iframe = $data['data']['embedIframe'];
+        $servers = $data['data']['servers'];
+        // Servidor VIP siempre es el último servidor en la lista
+    }
+}`;
+
+      case "js":
+        return `// JavaScript / Node.js fetch:
+const response = await fetch("${baseUrl}/api/v1/media/${testId}?type=${testType}", {
+  headers: {
+    "X-Badrock-Key": "${selectedOrFirstKey}",
+    "Accept": "application/json"
+  }
+});
+
+const result = await response.json();
+console.log("Servidores disponibles:", result.data.servers);`;
+
+      case "iframe":
+        return `<!-- Direct Badrock Embed Player -->
+<iframe
+  src="${baseUrl}/play/embed/${testType === "movie" ? "movie" : "tv"}/${testId}${testType !== "movie" ? `/${testSeason}/${testEpisode}` : ""}"
+  width="100%"
+  height="100%"
+  style="border: none; aspect-ratio: 16/9; border-radius: 12px;"
+  allow="autoplay; encrypted-media; fullscreen"
+  allowfullscreen>
+</iframe>`;
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-8 max-w-6xl">
       {/* Top Banner & Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -132,7 +266,7 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
             Gestión de API Keys (REST API v1)
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Administra credenciales de acceso para consultar media, streams limpios y embeds externamente.
+            Genera y administra credenciales seguras para consultar títulos, streams de Google Drive y embeds de Badrockplyr.
           </p>
         </div>
 
@@ -172,7 +306,7 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
 
         <div className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-5 flex items-center justify-between shadow-sm">
           <div>
-            <p className="text-xs font-medium text-zinc-400">Consultas Totales</p>
+            <p className="text-xs font-medium text-zinc-400">Peticiones Totales</p>
             <p className="text-2xl font-bold text-cyan-300 mt-1">{totalRequests.toLocaleString()}</p>
           </div>
           <div className="p-3 bg-cyan-950/40 border border-cyan-800/30 rounded-xl text-cyan-300">
@@ -200,7 +334,7 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
           </div>
 
           <p className="text-xs text-zinc-300">
-            Copia esta clave ahora. Por seguridad, utilízala en tus llamadas HTTP mediante el header <code className="text-cyan-300 bg-zinc-950 px-1 py-0.5 rounded">X-Badrock-Key</code> o <code className="text-cyan-300 bg-zinc-950 px-1 py-0.5 rounded">Authorization: Bearer &lt;key&gt;</code>.
+            Copia esta clave ahora. Por seguridad, utilízala en tus llamadas HTTP mediante el header <code className="text-cyan-300 bg-zinc-950 px-1 py-0.5 rounded">X-Badrock-Key</code>, <code className="text-cyan-300 bg-zinc-950 px-1 py-0.5 rounded">Authorization: Bearer &lt;key&gt;</code> o como parámetro <code className="text-cyan-300 bg-zinc-950 px-1 py-0.5 rounded">?api_key=&lt;key&gt;</code>.
           </p>
 
           <div className="flex items-center gap-2 bg-zinc-950/90 border border-emerald-500/30 rounded-xl p-2.5">
@@ -333,30 +467,416 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
         )}
       </div>
 
-      {/* Quick API Docs Card */}
-      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2 text-cyan-400">
-          <Code2 className="h-5 w-5" />
-          <h3 className="text-sm font-semibold text-white">Integración con REST API v1</h3>
+      {/* Interactive Live API Tester Widget */}
+      <div className="bg-zinc-900/90 border border-cyan-500/30 rounded-2xl overflow-hidden shadow-xl">
+        <div className="p-5 bg-gradient-to-r from-zinc-950 via-zinc-900 to-cyan-950/30 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-cyan-950/70 border border-cyan-500/30 rounded-lg text-cyan-400">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                Consola Interactiva de Pruebas (Live API Tester)
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  REST v1
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Prueba consultas en tiempo real con tus API Keys para verificar resolución de servidores y embed.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setTestId("tt15398776");
+                setTestType("movie");
+              }}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Oppenheimer (tt15398776)
+            </button>
+            <button
+              onClick={() => {
+                setTestId("550");
+                setTestType("movie");
+              }}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Fight Club (550)
+            </button>
+            <button
+              onClick={() => {
+                setTestId("tt0903747");
+                setTestType("tv");
+                setTestSeason(1);
+                setTestEpisode(1);
+              }}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Breaking Bad S01E01
+            </button>
+          </div>
         </div>
 
-        <p className="text-xs text-zinc-400 leading-relaxed">
-          Consulta metadatos, fuentes resueltas (incluyendo el <b>Servidor VIP</b>) y código embed para reproductores mediante el endpoint <code className="text-cyan-300">/api/v1/media/[id]</code>. Soporta TMDB ID numérico o IMDb ID (<code className="text-cyan-300">tt...</code>).
-        </p>
+        <div className="p-6 space-y-6">
+          {/* Controls Form Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">API Key a Utilizar</label>
+              <select
+                value={testKey}
+                onChange={(e) => setTestKey(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
+              >
+                {keys.map((k) => (
+                  <option key={k.id} value={k.key}>
+                    {k.name} ({k.key.slice(0, 12)}...) {k.active ? "" : "[Revocada]"}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">ID (TMDb / IMDb)</label>
+              <input
+                type="text"
+                value={testId}
+                onChange={(e) => setTestId(e.target.value)}
+                placeholder="tt15398776 o 550"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">Tipo de Contenido</label>
+              <select
+                value={testType}
+                onChange={(e) => setTestType(e.target.value as any)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="movie">Película (Movie)</option>
+                <option value="tv">Serie (TV Show)</option>
+                <option value="anime">Anime</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">Método de Autenticación</label>
+              <select
+                value={testAuthMode}
+                onChange={(e) => setTestAuthMode(e.target.value as any)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="header_x">Header X-Badrock-Key</option>
+                <option value="header_bearer">Header Authorization: Bearer</option>
+                <option value="query_param">Query Param (?api_key=...)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Conditional Season & Episode if TV */}
+          {testType !== "movie" && (
+            <div className="flex items-center gap-4 p-3 bg-zinc-950/50 border border-zinc-800/80 rounded-xl">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-zinc-400">Temporada:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={testSeason}
+                  onChange={(e) => setTestSeason(Number(e.target.value))}
+                  className="w-20 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-zinc-400">Episodio:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={testEpisode}
+                  onChange={(e) => setTestEpisode(Number(e.target.value))}
+                  className="w-20 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Run Button */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="text-xs text-zinc-400">
+              Endpoint:{" "}
+              <code className="text-cyan-300 bg-zinc-950 px-2 py-0.5 rounded font-mono">
+                GET /api/v1/media/{testId}?type={testType}
+                {testAuthMode === "query_param" ? `&api_key=...` : ""}
+              </code>
+            </div>
+
+            <button
+              onClick={executeLiveTest}
+              disabled={testLoading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 via-cyan-500 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-cyan-950/60 border border-cyan-400/30 transition-all cursor-pointer disabled:opacity-60"
+            >
+              {testLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Ejecutando Petición...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 fill-white" />
+                  Probar API Key en Vivo
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Result Section */}
+          {testResult && (
+            <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
+              {/* Result Header Bar */}
+              <div className="p-3 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {testStatus === 200 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      200 OK
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-950 text-rose-400 border border-rose-500/30">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {testStatus} Error
+                    </span>
+                  )}
+
+                  {testLatency !== null && (
+                    <span className="text-xs text-zinc-400 font-mono">
+                      Latencia: <strong className="text-zinc-200">{testLatency} ms</strong>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setTesterTab("json")}
+                    className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                      testerTab === "json"
+                        ? "bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 font-semibold"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    JSON
+                  </button>
+                  {testResult.success && (
+                    <button
+                      onClick={() => setTesterTab("preview")}
+                      className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                        testerTab === "preview"
+                          ? "bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 font-semibold"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      Servidores & Embed ({testResult.data?.servers?.length || 0})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* JSON View */}
+              {testerTab === "json" && (
+                <div className="p-4 relative">
+                  <button
+                    onClick={() => copyToClipboard(JSON.stringify(testResult, null, 2))}
+                    className="absolute top-4 right-4 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[11px] flex items-center gap-1 border border-zinc-700"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copiar JSON
+                  </button>
+                  <pre className="font-mono text-xs text-zinc-300 max-h-96 overflow-y-auto overflow-x-auto whitespace-pre leading-relaxed">
+                    {JSON.stringify(testResult, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Preview & Servidores View */}
+              {testerTab === "preview" && testResult.data && (
+                <div className="p-5 space-y-5">
+                  {/* Media Metadata Card */}
+                  <div className="flex items-start gap-4 p-4 bg-zinc-900/60 rounded-xl border border-zinc-800/80">
+                    {testResult.data.posterUrl && (
+                      <img
+                        src={testResult.data.posterUrl}
+                        alt={testResult.data.title}
+                        className="w-20 rounded-lg shadow object-cover shrink-0"
+                      />
+                    )}
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        {testResult.data.title}
+                        <span className="text-zinc-400 text-xs font-normal">
+                          ({testResult.data.year || "N/A"})
+                        </span>
+                      </h4>
+                      <p className="text-xs text-zinc-400 line-clamp-2">
+                        {testResult.data.overview || "Sin descripción."}
+                      </p>
+                      <div className="flex items-center gap-2 pt-2 text-[11px]">
+                        <span className="font-mono bg-zinc-800 px-2 py-0.5 rounded text-zinc-300">
+                          TMDb ID: {testResult.data.tmdbId}
+                        </span>
+                        {testResult.data.imdbId && (
+                          <span className="font-mono bg-amber-950/60 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded">
+                            IMDb ID: {testResult.data.imdbId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Servidores Table */}
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                      <Server className="h-4 w-4 text-cyan-400" />
+                      Servidores de Video Resueltos (Garantía Servidor VIP al final):
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {testResult.data.servers?.map((srv: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-xl border flex flex-col justify-between ${
+                            srv.isVip
+                              ? "bg-amber-950/30 border-amber-500/40 text-amber-200"
+                              : "bg-zinc-900/80 border-zinc-800 text-zinc-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-semibold text-xs flex items-center gap-1.5">
+                              {srv.isVip && <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />}
+                              {srv.name}
+                            </span>
+                            {srv.isVip ? (
+                              <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                                VIP Propio
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                                {srv.source}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-white/5">
+                            <span>{srv.language}</span>
+                            <span className="font-mono font-medium text-cyan-400">{srv.quality}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Embed Iframe Preview */}
+                  {testResult.data.embedPlayerUrl && (
+                    <div className="space-y-2 pt-2">
+                      <h5 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                        <Play className="h-4 w-4 text-cyan-400" />
+                        Vista Previa de Reproductor Incrustado:
+                      </h5>
+                      <div className="w-full aspect-video rounded-xl overflow-hidden border border-zinc-800 bg-black">
+                        <iframe
+                          src={testResult.data.embedPlayerUrl}
+                          className="w-full h-full border-0"
+                          allow="autoplay; encrypted-media; fullscreen"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Code Integration Hub */}
+      <div className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-cyan-950/60 border border-cyan-800/30 rounded-xl text-cyan-400">
+              <Code2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Hub de Integración (Snippets)</h3>
+              <p className="text-xs text-zinc-400">
+                Ejemplos listos para copiar y pegar en WordPress, cURL o tus aplicaciones web.
+              </p>
+            </div>
+          </div>
+
+          {/* Snippet Tabs */}
+          <div className="flex items-center gap-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+            <button
+              onClick={() => setCodeSnippetTab("curl")}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                codeSnippetTab === "curl"
+                  ? "bg-cyan-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              cURL
+            </button>
+            <button
+              onClick={() => setCodeSnippetTab("wordpress")}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                codeSnippetTab === "wordpress"
+                  ? "bg-cyan-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <FileCode2 className="h-3.5 w-3.5" />
+              WordPress PHP
+            </button>
+            <button
+              onClick={() => setCodeSnippetTab("js")}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                codeSnippetTab === "js"
+                  ? "bg-cyan-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Code2 className="h-3.5 w-3.5" />
+              JavaScript
+            </button>
+            <button
+              onClick={() => setCodeSnippetTab("iframe")}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                codeSnippetTab === "iframe"
+                  ? "bg-cyan-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Embed iFrame
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span className="font-mono">Ejemplo de consulta cURL:</span>
+            <span className="font-mono text-zinc-300">
+              Snippet dinámico con clave: <strong className="text-cyan-300 font-mono">{selectedOrFirstKey.slice(0, 16)}...</strong>
+            </span>
             <button
-              onClick={() => copyToClipboard(sampleCurl, true)}
-              className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              onClick={() => copyToClipboard(getCodeSnippet(), true)}
+              className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
             >
-              {copiedCurl ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copiedCurl ? "Copiado" : "Copiar comando"}
+              {copiedCodeSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedCodeSnippet ? "Copiado al portapapeles" : "Copiar Snippet"}
             </button>
           </div>
-          <pre className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl font-mono text-xs text-cyan-300 overflow-x-auto">
-            {sampleCurl}
+          <pre className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl font-mono text-xs text-cyan-300 overflow-x-auto leading-relaxed">
+            {getCodeSnippet()}
           </pre>
         </div>
       </div>
@@ -409,7 +929,7 @@ export default function ApiKeyManagerClient({ initialKeys, baseUrl }: ApiKeyMana
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
                 />
                 <p className="text-[11px] text-zinc-500">
-                  Valida cabeceras <code className="text-zinc-400">Origin</code> / <code className="text-zinc-400">Referer</code> para prevenir robo de clave.
+                  Valida cabeceras <code className="text-zinc-400">Origin</code> / <code className="text-zinc-400">Referer</code> para prevenir uso no autorizado.
                 </p>
               </div>
 

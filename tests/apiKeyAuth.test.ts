@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
+  extractApiKey,
   extractApiKeyFromHeaders,
   matchesAllowedDomain,
   validateApiKey,
+  getOrCreateDefaultApiKey,
 } from "../src/lib/apiKeyAuth";
 import { prisma } from "../src/lib/prisma";
 
@@ -15,17 +17,31 @@ describe("apiKeyAuth", () => {
     const headers = new Headers();
     headers.set("X-Badrock-Key", "bdrk_live_12345");
     expect(extractApiKeyFromHeaders(headers)).toBe("bdrk_live_12345");
+    expect(extractApiKey({ headers })).toBe("bdrk_live_12345");
   });
 
   it("extracts API key from Authorization: Bearer header", () => {
     const headers = new Headers();
     headers.set("Authorization", "Bearer bdrk_live_67890");
     expect(extractApiKeyFromHeaders(headers)).toBe("bdrk_live_67890");
+    expect(extractApiKey({ headers })).toBe("bdrk_live_67890");
   });
 
-  it("returns null if no key is present in headers", () => {
+  it("extracts API key from query parameter api_key or key", () => {
+    const headers = new Headers();
+    const searchParams = new URLSearchParams("api_key=bdrk_live_query123");
+    expect(extractApiKey({ headers, searchParams })).toBe("bdrk_live_query123");
+
+    const searchParams2 = new URLSearchParams("key=bdrk_live_query456");
+    expect(extractApiKey({ headers, searchParams: searchParams2 })).toBe("bdrk_live_query456");
+
+    expect(extractApiKey({ headers, url: "https://example.com/api?api_key=bdrk_live_from_url" })).toBe("bdrk_live_from_url");
+  });
+
+  it("returns null if no key is present in headers or query params", () => {
     const headers = new Headers();
     expect(extractApiKeyFromHeaders(headers)).toBeNull();
+    expect(extractApiKey({ headers })).toBeNull();
   });
 
   it("matches allowed domains correctly with subdomains and wildcards", () => {
@@ -94,5 +110,25 @@ describe("apiKeyAuth", () => {
         data: expect.objectContaining({ requestCount: { increment: 1 } }),
       })
     );
+  });
+
+  it("creates a master API key if none exists via getOrCreateDefaultApiKey", async () => {
+    vi.spyOn(prisma.apiKey, "findFirst").mockResolvedValue(null as any);
+    const createSpy = vi.spyOn(prisma.apiKey, "create").mockResolvedValue({
+      id: "master-1",
+      key: "bdrk_live_master_seed",
+      name: "Master API Key (Predeterminada)",
+      allowedDomains: "*",
+      rateLimitPerMinute: 120,
+      requestCount: 0,
+      lastUsedAt: null,
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    const result = await getOrCreateDefaultApiKey();
+    expect(result.id).toBe("master-1");
+    expect(createSpy).toHaveBeenCalled();
   });
 });

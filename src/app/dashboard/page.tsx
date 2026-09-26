@@ -110,15 +110,13 @@ export default async function DashboardPage() {
     } catch {}
   }
 
-  const activeApiKeysCount = apiKeys.length > 0
-    ? apiKeys.filter((k: any) => k.active !== false).length
-    : 1;
+  const activeApiKeysCount = apiKeys.filter((k: any) => k.active !== false).length;
 
-  const totalApiRequests = apiKeys.length > 0
-    ? apiKeys.reduce((acc: number, k: any) => acc + (Number(k.requestCount || k.requests || k.totalRequests) || 0), 0)
-    : Math.max(148, linkCount * 18 + 42);
+  const totalApiRequests = apiKeys.reduce(
+    (acc: number, k: any) => acc + (Number(k.requestCount) || 0),
+    0
+  );
 
-  // 4. Determine Top Connected Domains from ApiKeys and GeneratedLinks
   const recentLinks = await prisma.generatedLink.findMany({
     take: 6,
     orderBy: { createdAt: "desc" },
@@ -127,81 +125,44 @@ export default async function DashboardPage() {
     },
   });
 
+  // 4. Domains explicitly whitelisted in API keys ("*" means any origin and is not a domain)
   const domainMap = new Map<string, DomainMetric>();
+  let wildcardKeysCount = 0;
 
-  // Add default WordPress integration domains or API key domains
-  if (apiKeys.length > 0) {
-    for (const key of apiKeys) {
-      const domains: string[] = Array.isArray(key.allowedDomains)
-        ? key.allowedDomains
-        : typeof key.allowedDomains === "string"
-        ? key.allowedDomains.split(/[\s,]+/).filter(Boolean)
-        : [];
+  for (const key of apiKeys) {
+    const domains: string[] = Array.isArray(key.allowedDomains)
+      ? key.allowedDomains
+      : typeof key.allowedDomains === "string"
+      ? key.allowedDomains.split(/[\s,]+/).filter(Boolean)
+      : [];
 
-      for (const dom of domains) {
-        const clean = dom.trim().toLowerCase();
-        if (clean && !domainMap.has(clean)) {
-          domainMap.set(clean, {
-            domain: clean,
-            source: key.name || "API Client",
-            requests: Number(key.requests || key.totalRequests) || 240,
-            status: "active",
-            lastActive: "En línea",
-          });
-        }
+    for (const dom of domains) {
+      const clean = dom.trim().toLowerCase();
+      if (!clean) continue;
+      if (clean === "*") {
+        wildcardKeysCount++;
+        continue;
       }
-    }
-  }
-
-  // Extract hostnames from generated links
-  for (const l of recentLinks) {
-    try {
-      const parsed = new URL(l.playerUrl);
-      const host = parsed.host;
-      if (!domainMap.has(host)) {
-        domainMap.set(host, {
-          domain: host,
-          source: host.includes("localhost") ? "Localhost Dev" : "Embed Player CDN",
-          requests: 120 + Math.floor(Math.random() * 80),
-          status: "active",
-          lastActive: "Hace minutos",
-        });
+      const existing = domainMap.get(clean);
+      const requests = Number(key.requestCount) || 0;
+      const lastUsedAt = key.lastUsedAt ? new Date(key.lastUsedAt) : null;
+      if (existing) {
+        existing.requests += requests;
+        if (key.active !== false) existing.status = "active";
+        continue;
       }
-    } catch {}
-  }
-
-  // Fallback defaults for WordPress DooPlay & ToroFlix presets showcase
-  if (domainMap.size < 3) {
-    if (!domainMap.has("dooplay-stream.io")) {
-      domainMap.set("dooplay-stream.io", {
-        domain: "dooplay-stream.io",
-        source: "WordPress DooPlay Preset",
-        requests: 1840,
-        status: "active",
-        lastActive: "Activo (vía REST API)",
-      });
-    }
-    if (!domainMap.has("toroflix-cinema.net")) {
-      domainMap.set("toroflix-cinema.net", {
-        domain: "toroflix-cinema.net",
-        source: "WordPress ToroFlix Hook",
-        requests: 950,
-        status: "active",
-        lastActive: "Activo (vía Custom Fields)",
-      });
-    }
-    if (!domainMap.has("cuevana-latino.tv")) {
-      domainMap.set("cuevana-latino.tv", {
-        domain: "cuevana-latino.tv",
-        source: "Cliente API Whitelist",
-        requests: 4120,
-        status: "active",
-        lastActive: "En línea",
+      domainMap.set(clean, {
+        domain: clean,
+        source: key.name || "API Key",
+        requests,
+        status: key.active !== false ? "active" : "standby",
+        lastActive: lastUsedAt ? lastUsedAt.toLocaleString("es-PE") : "Sin uso",
       });
     }
   }
 
-  const topConnectedDomains = Array.from(domainMap.values()).slice(0, 4);
+  const connectedDomains = Array.from(domainMap.values());
+  const topConnectedDomains = connectedDomains.slice(0, 4);
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -272,7 +233,7 @@ export default async function DashboardPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-mono tracking-tight text-white">
-                {topConnectedDomains.length}
+                {connectedDomains.length}
               </span>
               <span className="text-xs font-semibold text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 Autorizados
@@ -280,7 +241,9 @@ export default async function DashboardPage() {
             </div>
             <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-              WordPress, DooPlay & ToroFlix
+              {wildcardKeysCount > 0
+                ? `${wildcardKeysCount} API Key(s) aceptan cualquier dominio`
+                : "En la lista blanca de tus API Keys"}
             </p>
           </div>
         </div>
@@ -498,6 +461,13 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
+              {topConnectedDomains.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-zinc-500">
+                    Ninguna API Key tiene dominios en su lista blanca.
+                  </td>
+                </tr>
+              )}
               {topConnectedDomains.map((item, idx) => (
                 <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
                   <td className="py-3.5 pl-2">
@@ -517,10 +487,16 @@ export default async function DashboardPage() {
                     {item.requests.toLocaleString()} reqs
                   </td>
                   <td className="py-3.5 text-center">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/50 border border-emerald-500/30 text-emerald-400">
-                      <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
-                      Verificado
-                    </span>
+                    {item.status === "active" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/50 border border-emerald-500/30 text-emerald-400">
+                        <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-900 border border-white/10 text-zinc-400">
+                        Inactivo
+                      </span>
+                    )}
                   </td>
                   <td className="py-3.5 pr-2 text-right text-zinc-400 font-mono text-[11px]">
                     {item.lastActive}

@@ -135,7 +135,7 @@ function badrock_render_settings_page() {
 
         statusEl.innerHTML = '<span style="color: #64748b;">Conectando con Badrock...</span>';
 
-        fetch(apiUrl + '/api/v1/media/550', {
+        fetch(apiUrl + '/api/v1/auth/verify', {
             headers: {
                 'X-Badrock-Key': apiKey,
                 'Accept': 'application/json'
@@ -143,10 +143,22 @@ function badrock_render_settings_page() {
         })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                statusEl.innerHTML = '<span style="color: #10b981;">✓ Conexión Exitosa. Título de prueba recibido: ' + (data.data?.title || 'OK') + '</span>';
+            if (data.success && data.valid) {
+                statusEl.innerHTML = '<span style="color: #10b981;">✓ Conexión Exitosa. Clave: <strong>' + (data.data?.name || 'Activa') + '</strong> (' + (data.data?.rateLimitPerMinute || 60) + ' req/min).</span>';
             } else {
-                statusEl.innerHTML = '<span style="color: #ef4444;">✗ Error de API: ' + (data.error || 'Clave inválida') + '</span>';
+                // Fallback test to /api/v1/media/550
+                fetch(apiUrl + '/api/v1/media/550?api_key=' + encodeURIComponent(apiKey))
+                .then(r => r.json())
+                .then(mdata => {
+                    if (mdata.success) {
+                        statusEl.innerHTML = '<span style="color: #10b981;">✓ Conexión Exitosa con media endpoint. Título: ' + (mdata.data?.title || 'OK') + '</span>';
+                    } else {
+                        statusEl.innerHTML = '<span style="color: #ef4444;">✗ Error: ' + (mdata.error || 'Clave no autorizada') + '</span>';
+                    }
+                })
+                .catch(() => {
+                    statusEl.innerHTML = '<span style="color: #ef4444;">✗ Error de API: ' + (data.error || 'Clave inválida') + '</span>';
+                });
             }
         })
         .catch(err => {

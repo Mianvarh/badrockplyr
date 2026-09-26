@@ -15,10 +15,10 @@ type TableName =
   | "RefreshJobLog";
 
 const sqlitePath = process.env.SQLITE_DATABASE_PATH || "dev.db";
-const databaseUrl =
-  process.env.POSTGRES_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  "postgresql://badrockplyr:badrockplyr@localhost:5432/badrockplyr";
+const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("Set POSTGRES_DATABASE_URL (or DATABASE_URL) to the target PostgreSQL connection string.");
+}
 
 const tableOrder: TableName[] = [
   "MediaItem",

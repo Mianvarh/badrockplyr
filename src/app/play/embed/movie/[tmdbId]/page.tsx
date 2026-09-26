@@ -18,6 +18,8 @@ export default async function MovieEmbedPlayerPage({ params }: PageProps) {
       tmdbId,
       mediaType: "movie"
     },
+    // Duplicate rows can exist for the same movie; prefer the one with sources
+    orderBy: { videoVariants: { _count: "desc" } },
     include: {
       selectedPlayback: true,
       videoVariants: {

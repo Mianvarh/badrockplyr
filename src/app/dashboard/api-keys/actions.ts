@@ -3,8 +3,13 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getOrCreateDefaultApiKey } from "@/lib/apiKeyAuth";
 
 export async function listApiKeys() {
+  const count = await prisma.apiKey.count();
+  if (count === 0) {
+    await getOrCreateDefaultApiKey();
+  }
   return prisma.apiKey.findMany({
     orderBy: { createdAt: "desc" },
   });
