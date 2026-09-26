@@ -2061,8 +2061,8 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
 
     const privateMedia = await prisma.sourceSite.upsert({
       where: { id: PRIVATE_MEDIA_SOURCE_ID },
-      update: { name: "Private Media", allowedDomain: "private-media.local", baseUrl: "private-media://resolve", searchMode: "TMDB_ID", active: true, priority: 98, usePlaywright: false },
-      create: { id: PRIVATE_MEDIA_SOURCE_ID, name: "Private Media", allowedDomain: "private-media.local", baseUrl: "private-media://resolve", searchMode: "TMDB_ID", active: true, priority: 98, usePlaywright: false }
+      update: { name: "Servidor VIP (Fuente Propia)", allowedDomain: "private-media.local", baseUrl: "private-media://resolve", searchMode: "TMDB_ID", active: true, priority: 1, usePlaywright: false },
+      create: { id: PRIVATE_MEDIA_SOURCE_ID, name: "Servidor VIP (Fuente Propia)", allowedDomain: "private-media.local", baseUrl: "private-media://resolve", searchMode: "TMDB_ID", active: true, priority: 1, usePlaywright: false }
     });
 
     // 2. Clear previous discovery logs. Playback variants are replaced only
@@ -2168,6 +2168,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
       episode,
     });
 
+    let privateStagedVariant: StagedVariant | null = null;
     if (privateResolved?.item && privateResolved.playback?.url) {
       const privateUrl = buildPrivateMediaUrl({
         tmdbId: link.tmdbId,
@@ -2189,7 +2190,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
         }
       });
 
-      stagedVariants.push({
+      privateStagedVariant = {
         sourceSiteId: privateMedia.id,
         candidateUrl: PRIVATE_MEDIA_CANDIDATE_URL,
         videoUrl: privateUrl,
@@ -2199,10 +2200,9 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
         storedUrl: privateUrl,
         validationUrl: privateResolved.playback.url,
         detectedLanguage: toPrivateMediaLanguage(privateResolved.item.language),
-        sortOrder: 0,
-      });
-      videosFoundCount++;
-      console.log(`[Private Media] Fuente propia validada para TMDB ${link.tmdbId}. Se usará como opción prioritaria.`);
+        sortOrder: 999,
+      };
+      console.log(`[Private Media] Fuente propia validada para TMDB ${link.tmdbId}. Se añadirá al final como 'Servidor VIP (Fuente Propia)'.`);
     }
 
     if (gnulaRelay && gnulaRelay.videos.length > 0) {
@@ -2370,9 +2370,10 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
     const failedStoredUrls = new Set<string>();
     const failedCandidateUrls = new Set<string>();
 
+    const maxExternalVariants = privateStagedVariant ? 3 : 4;
     for (const cand of allCandidates) {
-      if (videosFoundCount >= 4) {
-        console.log(`[Scraper] Se alcanzó el límite máximo de 4 opciones. Omitiendo candidatos restantes.`);
+      if (stagedVariants.length >= maxExternalVariants) {
+        console.log(`[Scraper] Se alcanzó el límite de opciones externas (${maxExternalVariants}). Omitiendo candidatos restantes.`);
         break;
       }
 
@@ -2417,7 +2418,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
         storedUrl: cleanCandidate.storedUrl,
         validationUrl: cleanCandidate.validationUrl,
         detectedLanguage: detectedLang,
-        sortOrder: videosFoundCount,
+        sortOrder: stagedVariants.length,
       });
 
       videosFoundCount++;
@@ -2426,8 +2427,9 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
     }
 
     // 3.8. Guaranteed rescue fallback: Ensure minimum of 2 playable embeds per media item
-    if (stagedVariants.length < 2) {
-      console.log(`[Safety Net] MediaItem ${link.mediaItemId} (TMDB ${link.tmdbId}) tiene solo ${stagedVariants.length} opciones (< 2). Evaluando opciones de rescate garantizadas...`);
+    const currentVariantsCount = stagedVariants.length + (privateStagedVariant ? 1 : 0);
+    if (currentVariantsCount < 2) {
+      console.log(`[Safety Net] MediaItem ${link.mediaItemId} (TMDB ${link.tmdbId}) tiene solo ${currentVariantsCount} opciones (< 2). Evaluando opciones de rescate garantizadas...`);
       const guaranteedSite = await prisma.sourceSite.upsert({
         where: { id: "guaranteed-embed-source-id" },
         update: { name: "Multi-Embed", allowedDomain: "vidlink.pro", baseUrl: "https://vidlink.pro", searchMode: "TMDB_ID", active: true, priority: 7, usePlaywright: false },
@@ -2449,7 +2451,7 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
           ];
 
       for (const fbUrl of fallbackUrls) {
-        if (stagedVariants.length >= 2) break;
+        if (stagedVariants.length + (privateStagedVariant ? 1 : 0) >= 2) break;
         if (savedUrls.has(fbUrl)) continue;
 
         try {
@@ -2469,12 +2471,20 @@ export async function runScrapeForGeneratedLink(linkId: string): Promise<{ succe
             });
             savedUrls.add(fbUrl);
             videosFoundCount++;
-            console.log(`[Safety Net] Embed garantizado añadido para TMDB ${link.tmdbId}: ${fbUrl} (Total opciones: ${stagedVariants.length})`);
+            console.log(`[Safety Net] Embed garantizado añadido para TMDB ${link.tmdbId}: ${fbUrl} (Total opciones: ${stagedVariants.length + (privateStagedVariant ? 1 : 0)})`);
           }
         } catch (e: any) {
           console.warn(`[Safety Net] Error verificando fallback ${fbUrl}:`, e.message);
         }
       }
+    }
+
+    // 3.9. Strict Rule: Ensure Fuentes Propias ('Servidor VIP') is ALWAYS the last option
+    if (privateStagedVariant) {
+      privateStagedVariant.sortOrder = stagedVariants.length;
+      stagedVariants.push(privateStagedVariant);
+      videosFoundCount++;
+      console.log(`[Private Media] 'Servidor VIP (Fuente Propia)' añadido al final como opción #${stagedVariants.length} (última opción garantizada).`);
     }
 
     let winningPlayback: Awaited<ReturnType<typeof runPlaybackSelection>> = null;

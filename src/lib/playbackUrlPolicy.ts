@@ -20,7 +20,12 @@ export function isPrivateMediaUrl(url: string) {
 }
 
 export function isPrivateMediaVariant(input: PlaybackRankInput) {
-  return input.candidateUrl === "PRIVATE_MEDIA" || isPrivateMediaUrl(input.videoUrl);
+  return (
+    input.candidateUrl === "PRIVATE_MEDIA" ||
+    isPrivateMediaUrl(input.videoUrl) ||
+    Boolean((input as any).sourceSite?.name?.includes("VIP")) ||
+    Boolean((input as any).sourceSite?.name?.includes("Fuente Propia"))
+  );
 }
 
 export function isManualVariant(input: PlaybackRankInput) {
@@ -158,6 +163,12 @@ export function comparePlaybackRank(a: PlaybackRankInput, b: PlaybackRankInput) 
   if (cleanA && !cleanB) return -1;
   if (!cleanA && cleanB) return 1;
 
+  // Private / VIP sources are ALWAYS placed at the end of scraped lists
+  const privateA = isPrivateMediaVariant(a);
+  const privateB = isPrivateMediaVariant(b);
+  if (privateA && !privateB) return 1;
+  if (!privateA && privateB) return -1;
+
   const langA = priorityIndex(LANGUAGE_PRIORITY, a.language);
   const langB = priorityIndex(LANGUAGE_PRIORITY, b.language);
   if (langA !== langB) return langA - langB;
@@ -197,5 +208,5 @@ export function orderPlaybackOptions<T extends PlaybackRankInput>(variants: T[],
     return applyLimit(privateMedia);
   }
 
-  return applyLimit([external[0], ...privateMedia, ...external.slice(1)]);
+  return applyLimit([...external, ...privateMedia]);
 }

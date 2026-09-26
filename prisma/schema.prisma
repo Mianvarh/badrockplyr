@@ -188,3 +188,20 @@ model RefreshJobLog {
   @@index([startedAt])
   @@index([status])
 }
+
+model ApiKey {
+  id                 String    @id @default(uuid())
+  key                String    @unique
+  name               String
+  allowedDomains     String?
+  rateLimitPerMinute Int       @default(60)
+  requestCount       Int       @default(0)
+  lastUsedAt         DateTime?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([key])
+  @@index([active])
+}
+

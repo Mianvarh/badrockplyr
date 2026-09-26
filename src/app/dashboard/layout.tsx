@@ -14,7 +14,8 @@ import {
   Clock,
   Terminal,
   Database,
-  HardDrive
+  HardDrive,
+  Key
 } from "lucide-react";
 
 interface SidebarLink {
@@ -30,6 +31,7 @@ const sidebarLinks: SidebarLink[] = [
   { name: "Biblioteca Media", href: "/dashboard/movies", icon: Film },
   { name: "Fuentes Propias", href: "/dashboard/private-media", icon: HardDrive },
   { name: "Fuentes Scraper", href: "/dashboard/sources", icon: Server },
+  { name: "API Keys", href: "/dashboard/api-keys", icon: Key },
   { name: "Resultados", href: "/dashboard/results", icon: Activity },
   { name: "Tareas / Jobs", href: "/dashboard/jobs", icon: Clock },
   { name: "Configuración", href: "/dashboard/settings", icon: Settings },

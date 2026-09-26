@@ -232,3 +232,101 @@ export async function fetchAlternativeTitles(
 
   return Array.from(titles).filter(Boolean);
 }
+
+export async function findTMDBByImdbId(imdbId: string): Promise<{
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  title: string;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  releaseYear: number | null;
+} | null> {
+  const apiKey = readTMDBApiKey();
+  if (!apiKey) {
+    throw new Error("TMDB_API_KEY no está configurada.");
+  }
+
+  const cleanId = imdbId.trim();
+  const url = `https://api.themoviedb.org/3/find/${encodeURIComponent(cleanId)}?api_key=${apiKey}&external_source=imdb_id&language=es-MX`;
+
+  try {
+    const res = await externalFetch(url, { proxy: "never", timeoutMs: 10_000 });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as {
+      movie_results?: Array<{
+        id: number;
+        title?: string;
+        original_title?: string;
+        overview?: string;
+        poster_path?: string | null;
+        backdrop_path?: string | null;
+        release_date?: string;
+      }>;
+      tv_results?: Array<{
+        id: number;
+        name?: string;
+        original_name?: string;
+        overview?: string;
+        poster_path?: string | null;
+        backdrop_path?: string | null;
+        first_air_date?: string;
+      }>;
+    };
+
+    const movie = data.movie_results?.[0];
+    if (movie) {
+      return {
+        tmdbId: String(movie.id),
+        mediaType: "movie",
+        title: movie.title || movie.original_title || "Sin título",
+        overview: movie.overview || "",
+        posterPath: movie.poster_path || null,
+        backdropPath: movie.backdrop_path || null,
+        releaseYear: movie.release_date ? new Date(movie.release_date).getFullYear() : null,
+      };
+    }
+
+    const tv = data.tv_results?.[0];
+    if (tv) {
+      return {
+        tmdbId: String(tv.id),
+        mediaType: "tv",
+        title: tv.name || tv.original_name || "Sin título",
+        overview: tv.overview || "",
+        posterPath: tv.poster_path || null,
+        backdropPath: tv.backdrop_path || null,
+        releaseYear: tv.first_air_date ? new Date(tv.first_air_date).getFullYear() : null,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`[TMDB] Error buscando IMDb ID ${imdbId}:`, error);
+    return null;
+  }
+}
+
+export async function fetchTMDBExternalIds(
+  tmdbId: string,
+  mediaType: "movie" | "tv" | "anime"
+): Promise<{ imdbId: string | null }> {
+  const apiKey = readTMDBApiKey();
+  if (!apiKey) return { imdbId: null };
+
+  const endpointType = mediaType === "movie" ? "movie" : "tv";
+  const url = `https://api.themoviedb.org/3/${endpointType}/${tmdbId}/external_ids?api_key=${apiKey}`;
+
+  try {
+    const res = await externalFetch(url, { proxy: "never", timeoutMs: 8000 });
+    if (!res.ok) return { imdbId: null };
+
+    const data = (await res.json()) as { imdb_id?: string | null };
+    return { imdbId: data.imdb_id || null };
+  } catch (error) {
+    console.warn(`[TMDB] Error obteniendo external_ids para TMDB ${tmdbId}:`, error);
+    return { imdbId: null };
+  }
+}
+

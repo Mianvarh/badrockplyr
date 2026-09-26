@@ -1,0 +1,96 @@
+/*
+Theme Name: Badrockplyr Child Theme
+Theme URI: https://badrockplyr.pro
+Description: Universal Child Theme & API Bridge for Badrockplyr PRO. Connects WordPress to the Badrock Streaming API, featuring 1-click IMDb/TMDb import, responsive ad-free embed player, and multi-server selector.
+Author: Badrock Media
+Author URI: https://badrockplyr.pro
+Template: twentytwentyfour
+Version: 2.0.0
+License: Commercial
+License URI: https://codester.com
+Text Domain: badrock-child
+*/
+
+/* 
+ * Badrockplyr Child Theme Styles
+ * Inherits parent theme styling while injecting sleek cinema player and server tabs styling.
+ */
+
+:root {
+    --badrock-cyan: #06b6d4;
+    --badrock-emerald: #10b981;
+    --badrock-amber: #f59e0b;
+    --badrock-dark: #07090e;
+    --badrock-surface: #0f121d;
+    --badrock-border: rgba(255, 255, 255, 0.08);
+}
+
+.badrock-embed-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    background: #000000;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--badrock-border);
+    margin: 20px 0;
+}
+
+.badrock-embed-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* Server Selector Tabs (when raw links mode is active) */
+.badrock-server-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.badrock-server-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: var(--badrock-surface);
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid var(--badrock-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.badrock-server-btn:hover {
+    background: rgba(6, 182, 212, 0.15);
+    border-color: var(--badrock-cyan);
+    color: #ffffff;
+}
+
+.badrock-server-btn.active {
+    background: rgba(6, 182, 212, 0.25);
+    border-color: var(--badrock-cyan);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+}
+
+.badrock-server-btn.is-vip {
+    border-color: rgba(245, 158, 11, 0.5);
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+}
+
+.badrock-server-btn.is-vip:hover {
+    background: rgba(245, 158, 11, 0.25);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+}
