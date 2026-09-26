@@ -335,7 +335,7 @@ export default function CinemaOverlay({
                       }}
                       className={`w-full flex items-center justify-between p-2 rounded-xl text-xs text-left cursor-pointer transition-all ${
                         isSelected
-                          ? "bg-red-600/20 border border-red-500/40 text-white font-semibold"
+                          ? "bg-cyan-500/20 border border-cyan-400/50 text-white font-semibold shadow-[0_0_12px_rgba(6,182,212,0.15)]"
                           : "hover:bg-white/5 text-zinc-300"
                       }`}
                     >
@@ -349,8 +349,13 @@ export default function CinemaOverlay({
                         <span className="text-[10px] font-mono text-zinc-400">
                           {v.quality}
                         </span>
+                        {v.sourceSite?.name?.toLowerCase().includes("private") && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            VIP
+                          </span>
+                        )}
                       </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-red-500" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
                     </button>
                   );
                 })}
@@ -421,10 +426,10 @@ export default function CinemaOverlay({
             {/* Sun icon indicator button */}
             <button
               type="button"
-              className="p-2 rounded-full bg-black/40 hover:bg-black/70 text-white/80 group-hover/bright:text-white border border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-lg"
+              className="p-2 rounded-full bg-black/50 hover:bg-black/80 text-white/80 group-hover/bright:text-cyan-400 border border-white/10 group-hover/bright:border-cyan-500/30 backdrop-blur-md transition-all cursor-pointer shadow-lg"
               title={`Brillo: ${Math.round(fillRatio * 100)}%`}
             >
-              <Sun className="w-4 h-4 text-white/80 group-hover/bright:text-white transition-colors" />
+              <Sun className="w-4 h-4 text-white/80 group-hover/bright:text-cyan-400 transition-colors" />
             </button>
 
             {/* Vertical slider bar: completely hidden unless cursor hovers over this part or dragging */}
@@ -435,7 +440,7 @@ export default function CinemaOverlay({
                   : "opacity-0 pointer-events-none group-hover/bright:opacity-100 group-hover/bright:pointer-events-auto scale-95 group-hover/bright:scale-100"
               }`}
             >
-              <span className="text-[10px] font-mono text-zinc-300 font-bold bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-md shadow">
+              <span className="text-[10px] font-mono text-cyan-300 font-bold bg-black/75 px-1.5 py-0.5 rounded border border-white/10 backdrop-blur-md shadow">
                 {Math.round(fillRatio * 100)}%
               </span>
               <div
@@ -444,7 +449,7 @@ export default function CinemaOverlay({
                 className="relative w-2 sm:w-2.5 h-24 sm:h-32 bg-white/20 hover:bg-white/35 rounded-full overflow-hidden cursor-pointer backdrop-blur-md transition-all shadow-lg"
               >
                 <div
-                  className="absolute bottom-0 inset-x-0 bg-white rounded-full transition-all duration-75 shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                  className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-cyan-500 to-emerald-400 rounded-full transition-all duration-75 shadow-[0_0_8px_rgba(6,182,212,0.8)]"
                   style={{ height: `${Math.round(fillRatio * 100)}%` }}
                 />
               </div>
@@ -461,17 +466,17 @@ export default function CinemaOverlay({
             <button
               type="button"
               onClick={onSkipBack10}
-              className="p-3 text-white/90 hover:text-white hover:scale-110 active:scale-95 transition-all cursor-pointer"
+              className="p-3 text-white/90 hover:text-cyan-300 hover:scale-110 active:scale-95 transition-all cursor-pointer"
               title="Retroceder 10 segundos"
             >
               <SkipBack10Icon className="w-9 h-9 sm:w-11 sm:h-11" />
             </button>
 
-            {/* Main Play / Pause Button */}
+            {/* Main Play / Pause Button with glowing ring */}
             <button
               type="button"
               onClick={onTogglePlay}
-              className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all shadow-2xl backdrop-blur-md cursor-pointer"
+              className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/40 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.35)] backdrop-blur-md cursor-pointer"
               title={isPlaying ? "Pausar" : "Reproducir"}
             >
               {isPlaying ? (
@@ -485,7 +490,7 @@ export default function CinemaOverlay({
             <button
               type="button"
               onClick={onSkipForward10}
-              className="p-3 text-white/90 hover:text-white hover:scale-110 active:scale-95 transition-all cursor-pointer"
+              className="p-3 text-white/90 hover:text-cyan-300 hover:scale-110 active:scale-95 transition-all cursor-pointer"
               title="Adelantar 10 segundos"
             >
               <SkipForward10Icon className="w-9 h-9 sm:w-11 sm:h-11" />
@@ -514,14 +519,14 @@ export default function CinemaOverlay({
                 className="absolute top-0 bottom-0 left-0 bg-white/40 rounded-full transition-all"
                 style={{ width: `${bufferRatio * 100}%` }}
               />
-              {/* Progress Bar (Netflix Red) */}
+              {/* Progress Bar (Unified Cyan/Emerald Gradient) */}
               <div
-                className="absolute top-0 bottom-0 left-0 bg-red-600 rounded-full"
+                className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
                 style={{ width: `${progressRatio * 100}%` }}
               />
-              {/* Red Thumb */}
+              {/* Cyan Thumb */}
               <div
-                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-red-600 rounded-full shadow-[0_0_10px_rgba(229,9,20,0.9)] transform -translate-x-1/2 scale-100 group-hover:scale-125 transition-transform"
+                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-cyan-400 rounded-full shadow-[0_0_12px_rgba(6,182,212,0.9)] transform -translate-x-1/2 scale-100 group-hover:scale-125 transition-transform"
                 style={{ left: `${progressRatio * 100}%` }}
               />
             </div>
@@ -531,10 +536,10 @@ export default function CinemaOverlay({
               <button
                 type="button"
                 onClick={onToggleMute}
-                className="text-zinc-300 hover:text-white transition-colors cursor-pointer p-0.5"
+                className="text-zinc-300 hover:text-cyan-300 transition-colors cursor-pointer p-0.5"
                 title={isMuted || volume === 0 ? "Activar sonido (M)" : "Silenciar (M)"}
               >
-                <VolumeIcon className={`w-4 h-4 ${isMuted || volume === 0 ? "text-red-500" : "text-white/90"}`} />
+                <VolumeIcon className={`w-4 h-4 ${isMuted || volume === 0 ? "text-amber-400" : "text-white/90"}`} />
               </button>
               <input
                 type="range"
@@ -544,7 +549,7 @@ export default function CinemaOverlay({
                 value={isMuted ? 0 : volume}
                 onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
                 aria-label="Volumen"
-                className="w-16 sm:w-20 h-1 sm:h-1.5 bg-white/25 hover:bg-white/40 rounded-lg appearance-none cursor-pointer accent-red-600 focus:outline-none transition-all"
+                className="w-16 sm:w-20 h-1 sm:h-1.5 bg-white/25 hover:bg-white/40 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none transition-all"
                 title={`Volumen: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
               />
               <span className="text-[10px] font-mono text-zinc-400 w-7 text-right">
@@ -552,22 +557,22 @@ export default function CinemaOverlay({
               </span>
             </div>
 
-            {/* Remaining time matching Reference 2 */}
+            {/* Remaining time */}
             <span className="text-xs sm:text-sm font-semibold font-mono text-zinc-200 tracking-wider shrink-0">
               {formatTime(remainingSeconds > 0 ? remainingSeconds : duration)}
             </span>
           </div>
         )}
 
-        {/* Bottom Action Row matching Reference 2 exactly */}
+        {/* Bottom Action Row */}
         <div className="flex items-center justify-between sm:justify-around w-full pt-1 text-zinc-300">
-          {/* Speed (1x) */}
+          {/* Speed */}
           <button
             type="button"
             onClick={onOpenSpeedModal}
             className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer text-xs font-semibold py-1 px-2 rounded-lg hover:bg-white/10"
           >
-            <Gauge className="w-4 h-4 text-red-500" />
+            <Gauge className="w-4 h-4 text-cyan-400" />
             <span>Speed ({playbackSpeed}x)</span>
           </button>
 
@@ -608,7 +613,7 @@ export default function CinemaOverlay({
             <button
               type="button"
               onClick={onNextEpisode}
-              className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer text-xs font-semibold py-1 px-2 rounded-lg hover:bg-white/10 text-red-400 hover:text-red-300"
+              className="flex items-center gap-1.5 hover:text-cyan-300 transition-colors cursor-pointer text-xs font-semibold py-1 px-2 rounded-lg hover:bg-white/10 text-cyan-400"
             >
               <SkipForward className="w-4 h-4" />
               <span>Next Ep.</span>

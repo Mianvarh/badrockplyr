@@ -666,11 +666,11 @@ export default function EmbedPlayer({
                 setIsLocked(false);
                 resetControlsTimeout();
               }}
-              className="opacity-0 group-hover/unlock:opacity-100 transition-all duration-300 transform scale-95 group-hover/unlock:scale-100 bg-black/85 hover:bg-black text-white/95 border border-white/20 px-5 py-4 rounded-full flex flex-col items-center gap-1.5 shadow-2xl backdrop-blur-xl cursor-pointer"
+              className="opacity-0 pointer-events-none group-hover/unlock:opacity-100 group-hover/unlock:pointer-events-auto transition-all duration-300 transform scale-95 group-hover/unlock:scale-100 bg-black/90 hover:bg-black text-white border border-cyan-500/40 px-6 py-4 rounded-full flex flex-col items-center gap-1.5 shadow-[0_0_30px_rgba(6,182,212,0.3)] backdrop-blur-2xl cursor-pointer"
               title="Desbloquear controles"
             >
-              <Unlock className="w-6 h-6 text-red-500 animate-pulse" />
-              <span className="text-[11px] font-bold tracking-wider uppercase text-zinc-200">
+              <Unlock className="w-6 h-6 text-cyan-400 animate-pulse" />
+              <span className="text-[11px] font-bold tracking-wider uppercase text-cyan-200">
                 Desbloquear
               </span>
             </button>

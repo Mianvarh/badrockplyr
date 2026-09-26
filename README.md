@@ -1,68 +1,80 @@
-# Badrockplyr
+# Badrockplyr PRO — Multi-Source Video Streaming Engine & API Platform
 
-Badrockplyr es una plataforma académica tipo API y reproductor *embed* inspirada en sistemas multi-fuente. Permite la generación de enlaces de reproducción a partir de IDs de TMDB (Películas, Series y Animes), extrayendo automáticamente los streams de video desde diversas fuentes para ofrecer un reproductor unificado, limpio y sin publicidad intrusiva.
+**Badrockplyr PRO** es una solución comercial todo-en-uno de alto rendimiento diseñada para webmasters, desarrolladores y plataformas de streaming. Permite generar reproductores embed ultrarrápidos, limpios y libres de publicidad a partir de IDs de TMDB o IMDb, extrayendo automáticamente streams reproducibles desde múltiples proveedores en alta definición (1080p / 720p / HLS), además de soportar fuentes privadas (Google Drive / Wasabi / S3 / Direct MP4) con proxy de streaming integrado.
 
-## 🚀 Características Principales
+---
 
-- **Generador de URLs**: Crea enlaces de reproducción (`/play/embed/...`) y recolección (`/f/embed/...`) utilizando directamente el ID de TMDB.
-- **Resolución Automática de TMDB**: Obtiene metadatos (título, año, pósters) directamente desde TMDB, incluyendo una lógica inteligente de auto-corrección de tipos (si una "película" es en realidad una "serie" para TMDB).
-- **Web Scraping y Extracción de Video**: Busca y analiza fuentes de video en sitios configurados. Extrae iframes y resuelve enlaces directos de servidores de alojamiento de video (ej. Filemoon, StreamWish, Voe).
-- **Reproductor Embed Limpio**: Un reproductor HTML5 unificado que elimina pop-ups, overlays y publicidad de terceros. Soporta selección de idioma, calidad y subtítulos.
-- **Gestión Inteligente de Variantes**: Clasifica y ordena los videos encontrados según idioma (prioridad: Latino > Inglés > Castellano > Japonés) y calidad (2160p > 1080p > HD > 720p > SD > CAM).
-- **Adición Manual de Enlaces**: Permite ingresar manualmente URLs de video para reemplazar opciones fallidas o no encontradas por el scraper.
+## 💎 Características Principales para Comercialización
+
+- 🎬 **Multi-Source Scraping Engine**: Integra múltiples proveedores de alta confiabilidad (Cuevana3, PelisFlix, Pelis Juanita, CineCalidad, JKAnime, TioAnime, AnimeFLV, MonosChinos, Gnula).
+- ⚡ **Direct Stream De-obfuscator**: Extrae streams directos 1080p MP4 y manifests HLS (.m3u8) desde hosts populares (VOE, Filemoon, StreamWish, Niramirus, Hanerix, Fembed) para una reproducción nativa sin publicidad de terceros.
+- 📺 **Cinema Experience Player**: Reproductor responsive inspirado en interfaces de cine moderno con control de volumen, auto-ocultamiento de brillo, pantalla bloqueable no invasiva, selector de servidores con badge VIP, control de velocidad y selector de audio/subtítulos.
+- ⭐ **Soporte de Fuentes Propias & Servidor VIP**: Carga enlaces privados de Google Drive o servidores propios con protección mediante proxy en chunks y rotación de proxies Webshare, configurándose automáticamente como la opción final (Servidor VIP).
+- 🔌 **REST API & WordPress Ready**: Endpoints JSON documentados para consultar embeds y enlaces directos mediante API Keys con restricción de dominio y límites de consulta. Compatible con temas de WordPress (DooPlay, ToroPlay o temas estándar) mediante Child Theme complementario.
+- 🛡️ **Anti-Bloqueo & Proxy Rotativo**: Soporte para grupos de proxies (Webshare 1 y 2) con failover automático en caso de saturación o límite de peticiones.
+- 🎯 **Detección Acústica de Idioma**: Análisis automático de audio y pistas para etiquetar de manera precisa el idioma (Latino, Castellano, Japonés, Inglés).
+- 🧩 **100% Sin Publicidad Intrusiva**: Elimina redirecciones, banners maliciosos y pop-ups de los servidores de origen.
+
+---
 
 ## 🛠 Stack Tecnológico
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router)
-- **Lenguaje**: TypeScript
-- **Estilos**: Tailwind CSS
-- **Base de Datos**: SQLite (entorno de desarrollo `dev.db`) a través de **Prisma ORM**
-- **Scraping**: Cheerio
+- **Framework**: [Next.js 15+](https://nextjs.org/) (App Router, Server Components & Route Handlers)
+- **Lenguaje**: TypeScript 5+ (100% Type-safe)
+- **Estilos**: Tailwind CSS & Lucide Icons (Tema Dark Obsidian Moderno)
+- **ORM / Base de Datos**: Prisma ORM con soporte dual para SQLite (desarrollo rápido) y PostgreSQL / Supabase (producción de alta concurrencia)
+- **Scraping & Parsing**: Cheerio, Undici HTTP Client con timeout adaptativo y retries por proxy
 
-## 🏗 Arquitectura y Flujo de Trabajo
+---
 
-### 1. Generación de Enlaces y Metadata
-El usuario ingresa un ID de TMDB en el dashboard. El sistema (`tmdbService.ts`) consulta la API de TMDB. Si hay un error de clasificación (ej. buscar un anime como película), el sistema hace un *fallback* automático, corrige el `mediaType` y guarda la información correcta en la base de datos para evitar duplicados.
+## 🚀 Instalación y Despliegue Rápido
 
-### 2. Scraping y Resolución de Streams
-Una vez guardado el `MediaItem`, el scraper de Badrockplyr busca coincidencias en los sitios fuente configurados.
-- Se buscan slugs y se navega a las páginas correspondientes.
-- Se extraen los reproductores integrados.
-- Se utiliza el módulo `streamResolver.ts` para desofuscar y extraer los enlaces directos `.mp4` o `.m3u8` desde servidores como Filemoon, Voe y StreamWish.
+### Requisitos Previos
+- Node.js 18.17+ o 20+
+- Clave de API de TheMovieDatabase (TMDB API Key gratis)
 
-### 3. Reproducción
-El endpoint `/play/embed/...` renderiza el reproductor de Badrockplyr. Consulta la base de datos por las variantes de video (`VideoVariant`) disponibles, selecciona la de mejor calidad en el idioma prioritario y permite al usuario interactuar y cambiar de opciones según la disponibilidad.
+### 1. Clonar e Instalar Dependencias
+```bash
+git clone https://github.com/Mianvarh/badrockplyr.git
+cd badrockplyr
+npm install
+```
 
-## 🗄 Modelos de Datos Principales (Prisma)
+### 2. Configurar Variables de Entorno
+Copia el archivo de ejemplo y configura tus credenciales:
+```bash
+cp .env.example .env
+```
+Configura en `.env`:
+```env
+DATABASE_URL="file:./dev.db"
+TMDB_API_KEY="tu_api_key_de_tmdb"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
 
-- **`MediaItem`**: Almacena toda la metadata de la película o episodio obtenida desde TMDB.
-- **`GeneratedLink`**: Relaciona un `MediaItem` con las URLs generadas para el reproductor y el recolector.
-- **`VideoVariant`**: Almacena cada enlace de video encontrado (directo o iframe), clasificado por calidad, idioma y servidor.
-- **`ManualLink` / Opciones Manuales**: Permite al usuario reescribir o añadir variantes de video manualmente.
+### 3. Inicializar Base de Datos
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-## ⚙️ Instalación y Uso Local
+### 4. Iniciar en Modo Producción
+```bash
+npm run build
+npm start
+```
+El panel estará disponible en `http://localhost:3000/dashboard` y los reproductores en `http://localhost:3000/play/embed/...`.
 
-1. Clona el repositorio e instala las dependencias:
-   ```bash
-   npm install
-   ```
+---
 
-2. Configura tus variables de entorno en el archivo `.env` (incluyendo tu API Key de TMDB).
+## 📋 Endpoints de Reproducción Embed
 
-3. Genera el cliente de Prisma y aplica las migraciones a la base de datos SQLite:
-   ```bash
-   npx prisma generate
-   npx prisma db push
-   ```
+| Tipo | URL del Embed |
+| :--- | :--- |
+| **Película** | `/play/embed/movie/{tmdbId}` |
+| **Serie / Anime** | `/play/embed/tv/{tmdbId}/{temporada}/{episodio}` |
 
-4. Inicia el servidor de desarrollo:
-   ```bash
-   npm run dev
-   ```
+---
 
-5. Abre [http://localhost:3000](http://localhost:3000) en tu navegador para acceder al Dashboard.
-
-## 📝 Notas de Desarrollo
-
-- **Auto-corrección de tipos**: El scraper fue mejorado para manejar IDs que no coinciden estrictamente con su tipo (ej. el ID 372058 clasificado inicialmente como película pero reconocido como TV en TMDB).
-- **Soporte Host de Video**: La lógica de `streamResolver.ts` se actualiza constantemente para soportar cambios en el DOM o scripts de ofuscación de los hosts de video soportados (Filemoon, etc).
+## 📄 Licencia Comercial & Distribución
+Este software está empaquetado para distribución comercial en marketplaces autorizados. Todos los derechos reservados bajo la marca Badrockplyr PRO.
